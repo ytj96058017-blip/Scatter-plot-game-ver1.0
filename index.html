@@ -1,0 +1,1844 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>산점도 탐정: 라이브 클래스 배틀 (Correlation Detective Live)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=Orbitron:wght@500;700;900&family=Black+Han+Sans&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            dark: '#0a0e17',
+                            card: '#131c2e',
+                            accent: '#38bdf8',
+                            purple: '#a855f7',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            amber: '#f59e0b',
+                            gold: '#fbbf24'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                        digital: ['Orbitron', 'sans-serif'],
+                        title: ['Black Han Sans', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    
+    <style>
+        body {
+            background-color: #060911;
+            color: #f8fafc;
+            font-family: 'Noto Sans KR', sans-serif;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        .glass-panel {
+            background: rgba(19, 28, 46, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .pulse-boss {
+            animation: pulseBoss 1.5s infinite ease-in-out;
+        }
+        @keyframes pulseBoss {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(244,63,94,0.8)); }
+            50% { transform: scale(1.05); filter: drop-shadow(0 0 35px rgba(244,63,94,1)); }
+        }
+        canvas { touch-action: none; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(10, 14, 23, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-sky-500 selection:text-white">
+
+    <!-- Header & Navigation -->
+    <header class="glass-panel sticky top-0 z-50 px-4 lg:px-8 py-3 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-sky-500 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-sky-500/30">
+                    <i class="fa-solid fa-user-ninja text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl lg:text-2xl font-title tracking-wider bg-gradient-to-r from-sky-400 via-indigo-200 to-purple-400 bg-clip-text text-transparent">
+                        산점도 탐정: 라이브 클래스 배틀
+                    </h1>
+                    <p class="text-[11px] text-slate-400 font-medium">Real-time Scatter Plot Mystery & Live Leaderboard</p>
+                </div>
+            </div>
+
+            <!-- Mode Selector Tabs -->
+            <nav class="flex items-center bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800 text-xs">
+                <button id="tab-detective" onclick="switchMode('detective')" class="flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all duration-200 bg-sky-500 text-white shadow-md">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <span>용의자 수사</span>
+                </button>
+                <button id="tab-boss" onclick="switchMode('boss')" class="flex items-center space-x-2 px-4 py-2 rounded-xl font-bold text-slate-400 hover:text-white transition-all duration-200">
+                    <i class="fa-solid fa-skull text-rose-400"></i>
+                    <span>클래스 보스 레이드</span>
+                </button>
+                <button id="tab-racing" onclick="switchMode('racing')" class="flex items-center space-x-2 px-4 py-2 rounded-xl font-bold text-slate-400 hover:text-white transition-all duration-200">
+                    <i class="fa-solid fa-flag-checkered text-amber-400"></i>
+                    <span>스피드 레이싱</span>
+                </button>
+                <button id="tab-ranking" onclick="switchMode('ranking')" class="flex items-center space-x-2 px-4 py-2 rounded-xl font-bold text-slate-400 hover:text-white transition-all duration-200">
+                    <i class="fa-solid fa-trophy text-emerald-400"></i>
+                    <span>실시간 랭킹</span>
+                </button>
+            </nav>
+
+            <!-- User Status & Multi-player Room Control -->
+            <div class="flex items-center space-x-3">
+                <button onclick="openModal('apps-script-modal')" class="text-xs bg-slate-900 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 px-3 py-1.5 rounded-xl font-bold transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-database"></i>
+                    <span>시트 API 설정</span>
+                </button>
+
+                <div class="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-1.5 flex items-center space-x-2">
+                    <i class="fa-solid fa-wifi text-emerald-400 text-xs" id="room-status-dot"></i>
+                    <span class="text-xs font-bold text-slate-300" id="current-room-display">ROOM101 (탐정1)</span>
+                    <button onclick="openModal('room-modal')" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-0.5 rounded font-bold transition">
+                        방 접속
+                    </button>
+                </div>
+
+                <button onclick="toggleAudio()" id="audio-btn" class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 transition">
+                    <i class="fa-solid fa-volume-high text-sky-400" id="audio-icon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto p-4 lg:p-6 flex-grow relative" id="game-container">
+
+        <!-- ================= MODE 1: 용의자 수사 & 이상치 탐정 (DETECTIVE MODE) ================= -->
+        <section id="mode-detective" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <div class="glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between col-span-1 lg:col-span-3 gap-3">
+                    <div class="flex items-center space-x-3 w-full md:w-auto">
+                        <span class="px-3 py-1 bg-sky-500/20 text-sky-400 text-xs font-bold rounded-full border border-sky-500/30 shrink-0" id="case-badge">사건 #1</span>
+                        <div>
+                            <div class="flex items-center space-x-2">
+                                <h2 class="text-base lg:text-lg font-bold text-white" id="case-title">공부 시간과 시험 점수의 알리바이</h2>
+                                <span id="case-difficulty-badge" class="px-2 py-0.5 text-[10px] bg-emerald-500/20 text-emerald-300 font-bold rounded-full border border-emerald-500/30">난이도: ⭐</span>
+                            </div>
+                            <p class="text-xs text-slate-400" id="case-subtitle">3명의 용의자 중 데이터 패턴에 들어맞지 않는 이상치(거짓말쟁이)를 찾으세요!</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 shrink-0">
+                        <button onclick="prevCase()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <span id="case-progress-indicator" class="text-xs font-digital text-sky-400 font-bold px-2">1 / 8</span>
+                        <button onclick="nextCase()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel p-4 rounded-2xl flex items-center justify-between bg-gradient-to-br from-slate-900 via-indigo-950/40 to-purple-950/40 border border-indigo-500/30">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center text-xl shadow-inner">
+                            <i class="fa-solid fa-medal"></i>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-slate-400 font-medium">탐정 점수 & 수사 등급</div>
+                            <div class="text-xs lg:text-sm font-bold text-amber-300 font-digital" id="detective-score-val">0 PTS (수습 데이터 탐정)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Case Navigator Bar -->
+            <div class="glass-panel p-3 rounded-2xl flex items-center justify-between overflow-x-auto space-x-2 custom-scrollbar" id="case-select-buttons">
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left: Interactive Scatter Canvas & Trendline Adjuster -->
+                <div class="lg:col-span-7 flex flex-col space-y-4">
+                    <div class="glass-panel p-5 rounded-2xl relative overflow-hidden space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs uppercase tracking-wider text-sky-400 font-bold flex items-center">
+                                <i class="fa-solid fa-crosshairs mr-1.5"></i> 데이터 수사 그래프 & 추세 정밀 조준
+                            </span>
+                            <div class="flex items-center space-x-2 text-xs">
+                                <label class="flex items-center space-x-1.5 cursor-pointer bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                                    <input type="checkbox" id="toggle-laser-ruler" onchange="drawDetectiveCanvas()" class="accent-sky-500 rounded" checked>
+                                    <span class="text-slate-300 font-medium text-[11px]">레이저 추세선 보이기</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="relative bg-slate-950/90 rounded-2xl border border-slate-800 p-2 overflow-hidden shadow-2xl flex flex-col items-center">
+                            <canvas id="detective-canvas" width="600" height="380" class="w-full h-auto cursor-crosshair rounded-xl"></canvas>
+                            <div class="mt-2.5 text-xs text-sky-300 flex items-center space-x-2 bg-slate-900/90 px-4 py-1.5 rounded-full border border-sky-500/30">
+                                <i class="fa-solid fa-hand-pointer text-sky-400 animate-bounce"></i>
+                                <span id="detective-hint-text">그래프에서 추세에서 멀리 벗어난 '이상치 용의자 점'을 클릭하세요!</span>
+                            </div>
+                        </div>
+
+                        <!-- Slope Fitting Control -->
+                        <div class="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-sky-300 font-bold flex items-center">
+                                    <i class="fa-solid fa-sliders text-sky-400 mr-1.5"></i> 수사관 추세선 기울기 조절 자 (정밀 보너스 +50pt)
+                                </span>
+                                <span class="text-sky-400 font-digital font-bold" id="user-slope-display">기울기: 0.0</span>
+                            </div>
+                            <input type="range" min="-2.5" max="2.5" step="0.1" value="0" id="user-slope-slider" oninput="updateUserSlope(this.value)" class="w-full accent-sky-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Suspect Statements & Deduction Form -->
+                <div class="lg:col-span-5 flex flex-col space-y-4">
+                    <div class="glass-panel p-5 rounded-2xl space-y-3">
+                        <h3 class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center">
+                            <i class="fa-solid fa-users-viewfinder mr-2"></i> 용의자 알리바이 진술 (이상치를 찾고 알리바이를 밝히세요)
+                        </h3>
+                        <div id="suspects-list" class="space-y-2.5">
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-5 rounded-2xl flex-grow flex flex-col justify-between space-y-4">
+                        <div>
+                            <h3 class="text-xs font-bold text-sky-300 uppercase tracking-wider mb-3 flex items-center">
+                                <i class="fa-solid fa-clipboard-check mr-2"></i> 수사 결론 보고서 작성
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">이 사건 변수들의 상관관계 유형은?</label>
+                                    <div class="grid grid-cols-3 gap-2">
+                                        <button onclick="selectCorrelationType('positive')" id="opt-positive" class="p-2.5 text-center rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold hover:border-sky-500 transition">
+                                            <i class="fa-solid fa-arrow-trend-up text-emerald-400 block text-base mb-0.5"></i>
+                                            양의 상관
+                                        </button>
+                                        <button onclick="selectCorrelationType('negative')" id="opt-negative" class="p-2.5 text-center rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold hover:border-sky-500 transition">
+                                            <i class="fa-solid fa-arrow-trend-down text-rose-400 block text-base mb-0.5"></i>
+                                            음의 상관
+                                        </button>
+                                        <button onclick="selectCorrelationType('none')" id="opt-none" class="p-2.5 text-center rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold hover:border-sky-500 transition">
+                                            <i class="fa-solid fa-braille text-slate-400 block text-base mb-0.5"></i>
+                                            상관 없음
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">최종 수사 소평 (상관관계의 의미):</label>
+                                    <select id="deduction-select" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-purple-500">
+                                        <option value="">-- 결론을 선택하세요 --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button id="submit-detective-btn" onclick="submitCaseDeduction()" class="w-full py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-sky-500/25 transition flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-user-shield"></i>
+                            <span>범인 검거 및 수사 보고서 제출</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= MODE 2: 클래스 보스 레이드 (CLASSROOM BOSS RAID) ================= -->
+        <section id="mode-boss" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-3xl border border-rose-500/30 bg-gradient-to-b from-slate-950 via-slate-900 to-rose-950/20 text-center relative overflow-hidden">
+                <div class="max-w-3xl mx-auto space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="px-3 py-1 bg-rose-500/20 text-rose-400 text-xs font-bold rounded-full border border-rose-500/30 uppercase tracking-widest flex items-center">
+                            <i class="fa-solid fa-users mr-1.5 animate-pulse"></i> 학급 실시간 협동 보스 레이드 (Co-Op)
+                        </span>
+                        <div class="flex items-center space-x-1.5 bg-slate-950 px-2 py-1 rounded-xl border border-slate-800 text-[11px]">
+                            <span class="text-slate-400 font-bold mr-1">난이도:</span>
+                            <button onclick="setBossDifficulty(20000)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition" id="diff-20000">소형(2만)</button>
+                            <button onclick="setBossDifficulty(50000)" class="px-2 py-0.5 rounded-lg bg-rose-600 text-white font-bold transition" id="diff-50000">보통(5만)</button>
+                            <button onclick="setBossDifficulty(100000)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition" id="diff-100000">대형(10만)</button>
+                        </div>
+                        <span id="boss-phase-badge" class="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/40">
+                            페이즈 1: 전형적 산점도 정화
+                        </span>
+                    </div>
+
+                    <h2 class="text-2xl lg:text-3xl font-title text-rose-400 tracking-wide">
+                        상관관계 파괴자: 데이터 노이즈 크리처
+                    </h2>
+
+                    <!-- Boss Avatar -->
+                    <div class="relative w-40 h-40 mx-auto my-2 pulse-boss flex items-center justify-center" id="boss-avatar-wrapper">
+                        <div class="absolute inset-0 rounded-full bg-rose-600/30 blur-2xl"></div>
+                        <div class="relative z-10 w-32 h-32 flex items-center justify-center">
+                            <svg viewBox="0 0 100 100" class="w-full h-full drop-shadow-2xl">
+                                <path d="M50 5 L85 25 L95 65 L50 95 L5 65 L15 25 Z" fill="#1e1b4b" stroke="#f43f5e" stroke-width="4"/>
+                                <circle cx="35" cy="40" r="10" fill="#0f172a" stroke="#f43f5e" stroke-width="3"/>
+                                <circle cx="65" cy="40" r="10" fill="#0f172a" stroke="#f43f5e" stroke-width="3"/>
+                                <circle cx="35" cy="40" r="4" fill="#fbbf24" class="animate-ping"/>
+                                <circle cx="65" cy="40" r="4" fill="#fbbf24" class="animate-ping"/>
+                                <path d="M 25 70 Q 50 85 75 70 Q 50 60 25 70 Z" fill="#9f1239" stroke="#f43f5e" stroke-width="2"/>
+                                <polygon points="30,68 35,74 40,68" fill="#fff"/>
+                                <polygon points="45,68 50,76 55,68" fill="#fff"/>
+                                <polygon points="60,68 65,74 70,68" fill="#fff"/>
+                                <path d="M 10 20 L 30 28 M 90 20 L 70 28 M 50 0 L 50 15" stroke="#f43f5e" stroke-width="4" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <!-- Boss Health Bar -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-digital font-bold px-1">
+                            <span class="text-rose-400 uppercase">Boss Health Gauge</span>
+                            <span id="boss-hp-text" class="text-white">50000 / 50000 HP</span>
+                        </div>
+                        <div class="w-full h-5 bg-slate-950 rounded-full border border-slate-800 overflow-hidden p-0.5 shadow-inner">
+                            <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-rose-600 via-rose-500 to-amber-500 rounded-full transition-all duration-300 w-full shadow-lg shadow-rose-500/50"></div>
+                        </div>
+                    </div>
+
+                    <!-- Attack Controls and Live Damage Leaderboard -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
+                        <div class="md:col-span-8 bg-slate-950 p-4 rounded-2xl border border-slate-800 text-left space-y-3 flex flex-col justify-between">
+                            <div class="flex justify-between items-center text-xs">
+                                <span class="text-sky-400 font-bold uppercase" id="boss-mission-title"><i class="fa-solid fa-bolt mr-1"></i> 레이드 공격 미션</span>
+                                <div class="flex space-x-3 items-center">
+                                    <span class="text-amber-400 font-bold font-digital" id="boss-combo-count">COMBO x1</span>
+                                    <span class="text-emerald-400 font-bold font-digital" id="my-total-damage">내 기여도: 0 DMG</span>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                <div class="bg-slate-900 p-2 rounded-xl border border-slate-800">
+                                    <canvas id="boss-scatter-canvas" width="300" height="200" class="w-full h-auto rounded-lg"></canvas>
+                                </div>
+                                
+                                <div id="boss-phase-controls" class="space-y-2">
+                                    <p class="text-xs text-slate-300" id="boss-prompt-desc">이 산점도의 상관관계를 정확히 판별하여 공격하세요!</p>
+                                    <div class="grid grid-cols-1 gap-2">
+                                        <button onclick="attackBoss('positive')" class="py-2.5 px-4 bg-slate-800 hover:bg-emerald-600/30 border border-slate-700 hover:border-emerald-500 rounded-xl text-xs font-bold text-white transition flex items-center justify-between">
+                                            <span class="flex items-center"><i class="fa-solid fa-arrow-trend-up text-emerald-400 mr-2"></i> 양의 상관관계</span>
+                                            <span class="text-[10px] text-slate-400">+100 DMG</span>
+                                        </button>
+                                        <button onclick="attackBoss('negative')" class="py-2.5 px-4 bg-slate-800 hover:bg-rose-600/30 border border-slate-700 hover:border-rose-500 rounded-xl text-xs font-bold text-white transition flex items-center justify-between">
+                                            <span class="flex items-center"><i class="fa-solid fa-arrow-trend-down text-rose-400 mr-2"></i> 음의 상관관계</span>
+                                            <span class="text-[10px] text-slate-400">+100 DMG</span>
+                                        </button>
+                                        <button onclick="attackBoss('none')" class="py-2.5 px-4 bg-slate-800 hover:bg-slate-600/30 border border-slate-700 hover:border-slate-400 rounded-xl text-xs font-bold text-white transition flex items-center justify-between">
+                                            <span class="flex items-center"><i class="fa-solid fa-braille text-slate-400 mr-2"></i> 상관관계 없음</span>
+                                            <span class="text-[10px] text-slate-400">+100 DMG</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Scoreboard Panel -->
+                        <div class="md:col-span-4 bg-slate-950 p-4 rounded-2xl border border-rose-500/30 flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                                    <span class="text-xs font-bold text-amber-400 uppercase flex items-center">
+                                        <i class="fa-solid fa-trophy mr-1.5 text-amber-400"></i> 실시간 학급 딜량 전광판
+                                    </span>
+                                    <span class="text-[10px] text-emerald-400 font-digital font-bold animate-pulse">LIVE</span>
+                                </div>
+                                <div id="live-boss-leaderboard-list" class="space-y-2 text-xs">
+                                </div>
+                            </div>
+                            <div class="mt-3 text-[10px] text-amber-300 text-center bg-slate-900 py-1.5 rounded-lg border border-slate-800">
+                                💡 빠른 정답 시 크리티컬! ⚠️ 틀리면 내 기여도 -100 & 보스 HP +100 회복!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= MODE 3: 상관관계 스피드 레이싱 (RACING MODE) ================= -->
+        <section id="mode-racing" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-3xl relative overflow-hidden bg-slate-950/90">
+                <div class="flex flex-wrap items-center justify-between mb-4 gap-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-2xl font-digital">
+                            <i class="fa-solid fa-gauge-high"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-title text-white tracking-wider">CORRELATION SPEEDWAY</h2>
+                            <p class="text-xs text-slate-400">1단계 상관관계 방향 ➔ 2단계 강도를 순서대로 판단하여 질주하세요!</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-6 bg-slate-900/90 px-5 py-2.5 rounded-2xl border border-slate-800 font-digital">
+                        <div class="text-center">
+                            <div class="text-[10px] text-slate-400 uppercase">Speed</div>
+                            <div class="text-xl font-bold text-sky-400" id="race-speed">0 KM/H</div>
+                        </div>
+                        <div class="w-px h-8 bg-slate-800"></div>
+                        <div class="text-center">
+                            <div class="text-[10px] text-slate-400 uppercase">Streak</div>
+                            <div class="text-xl font-bold text-amber-400" id="race-combo">0x</div>
+                        </div>
+                        <div class="w-px h-8 bg-slate-800"></div>
+                        <div class="text-center">
+                            <div class="text-[10px] text-slate-400 uppercase">Score</div>
+                            <div class="text-xl font-bold text-emerald-400" id="race-score">0</div>
+                        </div>
+                        <div class="w-px h-8 bg-slate-800"></div>
+                        <div class="text-center">
+                            <div class="text-[10px] text-slate-400 uppercase">Timer</div>
+                            <div class="text-xl font-bold text-rose-400" id="race-timer">30.0s</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Animated Dynamic Racing Track Canvas -->
+                <div class="relative w-full h-36 bg-slate-950 rounded-2xl border border-amber-500/30 overflow-hidden mb-6 shadow-2xl">
+                    <canvas id="racing-track-canvas" width="800" height="150" class="w-full h-full"></canvas>
+                    <div id="racing-status-banner" class="absolute top-2 left-4 px-3 py-1 rounded-full bg-slate-900/80 border border-sky-400/40 text-[11px] font-bold text-sky-300 backdrop-blur-md">
+                        🏁 1단계: 상관관계 방향(양/음/없음)을 먼저 선택하세요!
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                    <div class="md:col-span-6 bg-slate-900/90 p-3 rounded-2xl border border-slate-800 flex justify-center items-center">
+                        <canvas id="racing-scatter-canvas" width="450" height="280" class="w-full h-auto rounded-xl"></canvas>
+                    </div>
+
+                    <div class="md:col-span-6 space-y-4">
+                        <div class="bg-slate-900/80 p-4 rounded-2xl border border-sky-500/30 space-y-2">
+                            <span class="text-xs text-sky-400 font-bold uppercase flex items-center justify-between">
+                                <span><i class="fa-solid fa-1 mr-1"></i> Q1. 상관관계의 방향 판별 (+35km/h)</span>
+                                <span id="q1-status-tag" class="text-[10px] bg-sky-500/20 px-2 py-0.5 rounded text-sky-300 font-normal">필수 선택</span>
+                            </span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="answerRaceQuestion('positive')" id="btn-race-dir-pos" class="p-3 bg-slate-800 hover:bg-emerald-600/30 border border-slate-700 hover:border-emerald-500 rounded-xl text-xs font-bold text-white transition flex flex-col items-center">
+                                    <i class="fa-solid fa-arrow-trend-up text-emerald-400 text-lg mb-1"></i>
+                                    양의 상관
+                                </button>
+                                <button onclick="answerRaceQuestion('negative')" id="btn-race-dir-neg" class="p-3 bg-slate-800 hover:bg-rose-600/30 border border-slate-700 hover:border-rose-500 rounded-xl text-xs font-bold text-white transition flex flex-col items-center">
+                                    <i class="fa-solid fa-arrow-trend-down text-rose-400 text-lg mb-1"></i>
+                                    음의 상관
+                                </button>
+                                <button onclick="answerRaceQuestion('none')" id="btn-race-dir-none" class="p-3 bg-slate-800 hover:bg-slate-600/30 border border-slate-700 hover:border-slate-500 rounded-xl text-xs font-bold text-white transition flex flex-col items-center">
+                                    <i class="fa-solid fa-braille text-slate-400 text-lg mb-1"></i>
+                                    상관 없음
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="race-strength-box" class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-2 opacity-50 pointer-events-none transition-all duration-200">
+                            <span class="text-xs text-amber-400 font-bold uppercase flex items-center justify-between">
+                                <span><i class="fa-solid fa-2 mr-1"></i> Q2. 상관관계의 강도 판별 (+20km/h 가속 / 오답 시 -30km/h 감속)</span>
+                                <span id="q2-status-tag" class="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-normal">1단계 완료 후 해금</span>
+                            </span>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button onclick="answerRaceStrength('strong')" class="p-3 bg-slate-800 hover:bg-amber-500/30 border border-slate-700 hover:border-amber-400 rounded-xl text-xs font-bold text-white transition flex items-center justify-center space-x-2">
+                                    <i class="fa-solid fa-compress text-amber-400 text-base"></i>
+                                    <span>강한 상관관계 (조밀함)</span>
+                                </button>
+                                <button onclick="answerRaceStrength('weak')" class="p-3 bg-slate-800 hover:bg-purple-500/30 border border-slate-700 hover:border-purple-400 rounded-xl text-xs font-bold text-white transition flex items-center justify-center space-x-2">
+                                    <i class="fa-solid fa-expand text-purple-400 text-base"></i>
+                                    <span>약한 상관관계 (퍼짐)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-2">
+                            <button onclick="startRacingGame()" id="start-race-btn" class="flex-1 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black rounded-2xl text-sm transition font-digital shadow-lg shadow-emerald-500/20">
+                                <i class="fa-solid fa-play mr-2"></i> RACE START
+                            </button>
+                            <button onclick="quitRacingGame()" id="stop-race-btn" class="px-5 py-3.5 bg-slate-800 hover:bg-rose-900/50 border border-slate-700 text-rose-400 hover:text-rose-300 font-bold rounded-2xl text-xs transition flex items-center justify-center space-x-1">
+                                <i class="fa-solid fa-stop mr-1"></i>
+                                <span>중단</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= MODE 4: 실시간 랭킹 (LIVE LEADERBOARD) ================= -->
+        <section id="mode-ranking" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-3xl space-y-6">
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center text-2xl font-digital">
+                            <i class="fa-solid fa-trophy"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-title text-white tracking-wider">실시간 학급 & 전교 랭킹 전광판</h2>
+                            <p class="text-xs text-slate-400">구글 시트 연동을 통해 실시간 집계되는 명예의 전당입니다.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                        <button onclick="fetchLeaderboardFromGAS()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition flex items-center space-x-1.5">
+                            <i class="fa-solid fa-arrows-rotate animate-spin" id="rank-refresh-icon"></i>
+                            <span>실시간 동기화</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Leaderboard Mode Selectors -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="glass-panel p-4 rounded-2xl border border-sky-500/30 bg-slate-900/80 space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <span class="text-xs font-bold text-sky-400 flex items-center"><i class="fa-solid fa-magnifying-glass mr-2"></i> 🕵️‍♂️ 용의자 수사 랭킹</span>
+                            <span class="text-[10px] text-slate-500">Top 10</span>
+                        </div>
+                        <div id="ranking-list-detective" class="space-y-2 text-xs min-h-[180px]">
+                            <div class="text-center py-8 text-slate-500 text-xs">데이터를 불러오는 중...</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl border border-rose-500/30 bg-slate-900/80 space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <span class="text-xs font-bold text-rose-400 flex items-center"><i class="fa-solid fa-skull mr-2"></i> 👹 보스 레이드 딜량 랭킹</span>
+                            <span class="text-[10px] text-slate-500">Top 10</span>
+                        </div>
+                        <div id="ranking-list-boss" class="space-y-2 text-xs min-h-[180px]">
+                            <div class="text-center py-8 text-slate-500 text-xs">데이터를 불러오는 중...</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel p-4 rounded-2xl border border-amber-500/30 bg-slate-900/80 space-y-3">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <span class="text-xs font-bold text-amber-400 flex items-center"><i class="fa-solid fa-gauge-high mr-2"></i> 🏎️ 레이싱 명예의 전당</span>
+                            <span class="text-[10px] text-slate-500">Top 10</span>
+                        </div>
+                        <div id="ranking-list-racing" class="space-y-2 text-xs min-h-[180px]">
+                            <div class="text-center py-8 text-slate-500 text-xs">데이터를 불러오는 중...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <!-- Detective Result Modal -->
+    <div id="detective-result-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-lg w-full p-6 rounded-3xl border border-sky-500/40 space-y-4 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-sky-500/20 border border-sky-400 text-sky-400 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-sky-500/30">
+                <i class="fa-solid fa-clipboard-check"></i>
+            </div>
+            <div>
+                <span class="px-3 py-1 bg-sky-500/20 text-sky-300 text-xs font-bold rounded-full border border-sky-500/40">CASE EVALUATION REPORT</span>
+                <h2 class="text-xl font-title text-white mt-1">사건 수사 세부 채점표</h2>
+            </div>
+            
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 text-left space-y-2 text-xs">
+                <div class="flex justify-between items-center"><span class="text-slate-400">수사 사건:</span> <span class="font-bold text-white" id="res-det-title">공부시간 알리바이</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">이상치 용의자 적중:</span> <span class="font-bold text-emerald-400" id="res-det-outlier">+100 PT</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">추세선 기울기 조준:</span> <span class="font-bold text-sky-400" id="res-det-slope">+50 PT</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">상관관계 정확도:</span> <span class="font-bold text-indigo-300" id="res-det-corr">+100 PT</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">수사 소평 논리성:</span> <span class="font-bold text-purple-300" id="res-det-logic">+100 PT</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">스피드 보너스 / 감점:</span> <span class="font-bold text-amber-400" id="res-det-bonus">+30 PT</span></div>
+                <div class="w-full h-px bg-slate-800 my-1"></div>
+                <div class="flex justify-between items-center font-bold text-sm"><span class="text-slate-200">이번 사건 획득 점수:</span> <span class="text-amber-300 font-digital" id="res-det-case-total">+380 PTS</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">누적 탐정 총점:</span> <span class="font-bold text-emerald-400 font-digital" id="res-det-cum-score">380 PTS</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">현재 수사 계급:</span> <span class="font-bold text-sky-300" id="res-det-rank">초보 데이터 형사</span></div>
+            </div>
+
+            <div class="flex space-x-2">
+                <button onclick="copyTeacherReport()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 font-bold rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-copy"></i>
+                    <span>교사 제출용 성적표 복사</span>
+                </button>
+                <button onclick="closeModal('detective-result-modal'); nextCase();" class="flex-1 py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold rounded-xl text-xs transition">
+                    다음 사건 수사하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Racing Result Modal -->
+    <div id="racing-result-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-lg w-full p-6 rounded-3xl border border-amber-500/40 space-y-4 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-amber-500/20 border border-amber-400 text-amber-400 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-amber-500/30">
+                <i class="fa-solid fa-flag-checkered"></i>
+            </div>
+            <div>
+                <span class="px-3 py-1 bg-amber-500/20 text-amber-300 text-xs font-bold rounded-full border border-amber-500/40">RACE FINISH REPORT</span>
+                <h2 class="text-xl font-title text-white mt-1">스피드 레이싱 최종 성적표</h2>
+            </div>
+            
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 text-left space-y-2 text-xs">
+                <div class="flex justify-between items-center"><span class="text-slate-400">드라이버 닉네임:</span> <span class="font-bold text-white" id="res-race-nick">탐정1</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">최종 획득 점수:</span> <span class="font-bold text-emerald-400 font-digital text-sm" id="res-race-score">0 PTS</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">최고 순간 속도:</span> <span class="font-bold text-sky-400 font-digital" id="res-race-max-speed">0 KM/H</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">최대 연속 정답 (Max Combo):</span> <span class="font-bold text-amber-300 font-digital" id="res-race-max-combo">0x</span></div>
+                <div class="w-full h-px bg-slate-800 my-1"></div>
+                <div class="flex justify-between items-center font-bold text-sm"><span class="text-slate-200">레이서 종합 등급:</span> <span class="text-amber-400 font-title" id="res-race-rank">S등급 (경주장의 셜록)</span></div>
+            </div>
+
+            <div class="flex space-x-2">
+                <button onclick="copyRaceReport()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
+                    <i class="fa-solid fa-copy"></i>
+                    <span>성적표 복사</span>
+                </button>
+                <button onclick="closeModal('racing-result-modal'); resetRacingScreen();" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition">
+                    화면으로 돌아가기
+                </button>
+                <button onclick="closeModal('racing-result-modal'); startRacingGame();" class="flex-1 py-3 bg-gradient-to-r from-amber-500 to-teal-600 hover:from-amber-400 hover:to-teal-500 text-slate-950 font-bold rounded-xl text-xs transition">
+                    다시 도전하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boss Victory Modal -->
+    <div id="boss-victory-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-lg w-full p-6 rounded-3xl border border-rose-500/40 space-y-4 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-400 text-rose-400 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-rose-500/30">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <div>
+                <span class="px-3 py-1 bg-rose-500/20 text-rose-300 text-xs font-bold rounded-full border border-rose-500/40">BOSS CLEAR REPORT</span>
+                <h2 class="text-xl font-title text-white mt-1">학급 보스 토벌 성공!</h2>
+            </div>
+            
+            <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 text-left space-y-2 text-xs">
+                <div class="flex justify-between items-center"><span class="text-slate-400">토벌한 보스:</span> <span class="font-bold text-rose-400">상관관계 파괴자 크리처</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400">내 총 딜량 기여도:</span> <span class="font-bold text-amber-300 font-digital text-sm" id="res-boss-my-dmg">0 DMG</span></div>
+                <div class="w-full h-px bg-slate-800 my-1"></div>
+                <div class="text-slate-300 font-bold mb-1">🏆 학급 기여도 TOP 레이더:</div>
+                <div id="res-boss-podium-list" class="space-y-1 text-slate-200">
+                </div>
+            </div>
+
+            <button onclick="closeModal('boss-victory-modal'); switchMode('boss');" class="w-full py-3 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs transition">
+                새 보스 레이드 시작하기
+            </button>
+        </div>
+    </div>
+
+    <!-- Room Entry Modal -->
+    <div id="room-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl border border-indigo-500/40 space-y-4">
+            <div class="text-center">
+                <h3 class="text-lg font-title text-white">학급 방 접속하기</h3>
+                <p class="text-xs text-slate-400">선생님이 안내한 방 코드와 닉네임을 입력하세요.</p>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">학생 닉네임</label>
+                    <input type="text" id="player-nickname" value="탐정1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">방 코드 (Room Code)</label>
+                    <input type="text" id="room-code-input" value="ROOM101" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white uppercase font-digital">
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="closeModal('room-modal')" class="flex-1 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold">취소</button>
+                <button onclick="joinRoom()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold">입장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Apps Script Web App URL Modal -->
+    <div id="apps-script-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl border border-emerald-500/40 space-y-4">
+            <div class="text-center">
+                <h3 class="text-lg font-title text-emerald-400"><i class="fa-solid fa-file-excel mr-2"></i>구글 시트 API 연동 설정</h3>
+                <p class="text-xs text-slate-400 mt-1">Google Apps Script의 웹 앱 배포 URL을 입력하세요.</p>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">Web App URL</label>
+                    <input type="url" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-emerald-300 font-mono">
+                </div>
+                <div class="text-[11px] text-slate-400 bg-slate-900/80 p-3 rounded-xl border border-slate-800 space-y-1">
+                    <p class="font-bold text-emerald-300">💡 배포 방법 안내:</p>
+                    <p>1. 구글 시트에서 확장 프로그램 > Apps Script 실행</p>
+                    <p>2. 배포 > 새 배포 > 웹 앱 선택</p>
+                    <p>3. 액세스 권한: <strong>'모든 사용자(Anyone)'</strong>로 배포 후 URL 복사</p>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="closeModal('apps-script-modal')" class="flex-1 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold">취소</button>
+                <button onclick="saveGasUrl()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold">저장 및 동기화</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 px-4 py-3 rounded-2xl bg-slate-800 text-white border border-slate-700 shadow-2xl text-xs font-semibold flex items-center space-x-2 transition-all duration-300 opacity-0 translate-y-10 pointer-events-none z-50">
+        <i class="fa-solid fa-circle-info text-sky-400 text-base" id="toast-icon"></i>
+        <span id="toast-msg">알림 메시지</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        let audioCtx = null;
+        let isMuted = false;
+        // 선생님께서 제공해주신 구글 앱스 스크립트 웹 앱 배포 URL을 기본값으로 설정
+        const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbygO3zRlUIQlIW2-UOtVeKLhgS2q0BwNujMWxw336AdusvKp3LqGzaxnb7-Q0j_0TLo/exec';
+        let gasWebUrl = localStorage.getItem('gas_web_url') || DEFAULT_GAS_URL;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        window.toggleAudio = function() {
+            isMuted = !isMuted;
+            const btn = document.getElementById('audio-icon');
+            if (btn) {
+                btn.className = isMuted ? "fa-solid fa-volume-xmark text-slate-500" : "fa-solid fa-volume-high text-sky-400";
+            }
+            window.showToast(isMuted ? '음소거 설정되었습니다.' : '음향 효과가 켜졌습니다.', 'info');
+        };
+
+        window.playSound = function(type) {
+            if (isMuted) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+                if (type === 'success') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(90, now + 0.2);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }
+            } catch(e) {}
+        };
+
+        window.showToast = function(msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            if (!toast || !toastMsg) return;
+
+            toastMsg.innerText = msg;
+            if (type === 'success') {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-base';
+            } else if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-triangle-exclamation text-rose-400 text-base';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-info text-sky-400 text-base';
+            }
+
+            toast.classList.remove('opacity-0', 'translate-y-10', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'translate-y-10', 'pointer-events-none');
+            }, 2500);
+        };
+
+        window.openModal = function(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove('hidden');
+            if (id === 'apps-script-modal') {
+                document.getElementById('gas-url-input').value = gasWebUrl;
+            }
+        };
+
+        window.closeModal = function(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.add('hidden');
+        };
+
+        window.saveGasUrl = function() {
+            const url = document.getElementById('gas-url-input').value.trim();
+            gasWebUrl = url;
+            localStorage.setItem('gas_web_url', url);
+            window.closeModal('apps-script-modal');
+            window.showToast('구글 시트 API URL이 저장되었습니다!', 'success');
+            fetchLeaderboardFromGAS();
+        };
+
+        window.switchMode = function(mode) {
+            // Stop racing if user switches tab/mode during play
+            if (raceInterval) {
+                clearInterval(raceInterval);
+                raceInterval = null;
+                isRacing = false;
+                const startBtn = document.getElementById('start-race-btn');
+                if (startBtn) startBtn.disabled = false;
+            }
+
+            ['detective', 'boss', 'racing', 'ranking'].forEach(m => {
+                const sec = document.getElementById(`mode-${m}`);
+                const tab = document.getElementById(`tab-${m}`);
+                if (sec) sec.classList.add('hidden');
+                if (tab) {
+                    tab.className = "flex items-center space-x-2 px-4 py-2 rounded-xl font-bold text-slate-400 hover:text-white transition-all duration-200";
+                }
+            });
+
+            const activeSec = document.getElementById(`mode-${mode}`);
+            const activeTab = document.getElementById(`tab-${mode}`);
+            if (activeSec) activeSec.classList.remove('hidden');
+            if (activeTab) {
+                const colorMap = {
+                    detective: 'bg-sky-500 text-white shadow-md',
+                    boss: 'bg-rose-600 text-white shadow-md',
+                    racing: 'bg-amber-500 text-slate-950 shadow-md',
+                    ranking: 'bg-emerald-600 text-white shadow-md'
+                };
+                activeTab.className = `flex items-center space-x-2 px-4 py-2 rounded-xl font-bold transition-all duration-200 ${colorMap[mode]}`;
+            }
+
+            if (mode === 'detective') renderDetectiveCase();
+            if (mode === 'boss') renderBossQuestion();
+            if (mode === 'racing') drawRacingTrack();
+            if (mode === 'ranking') fetchLeaderboardFromGAS();
+        };
+
+        window.joinRoom = function() {
+            const nick = document.getElementById('player-nickname').value || '탐정';
+            const roomCode = document.getElementById('room-code-input').value.toUpperCase() || 'ROOM101';
+            document.getElementById('current-room-display').innerText = `${roomCode} (${nick})`;
+            window.closeModal('room-modal');
+            window.showToast(`'${roomCode}' 학급 방에 입장했습니다!`, 'success');
+            renderLiveBossLeaderboard();
+            fetchLeaderboardFromGAS();
+        };
+
+        // ================= DETECTIVE MODE CODE =================
+        const detectiveCases = [
+            {
+                id: 1, diffBadge: "⭐ 입문", title: "공부 시간과 시험 점수의 알리바이", subtitle: "이상치(거짓말쟁이)를 포착하세요!",
+                xLabel: "공부 시간 (시간)", yLabel: "시험 점수 (점)", xDomain: [0, 10], yDomain: [0, 100], targetSlope: 0.9,
+                points: [
+                    { x: 1, y: 30, isOutlier: false }, { x: 2, y: 45, isOutlier: false }, { x: 3, y: 55, isOutlier: false },
+                    { x: 4, y: 65, isOutlier: false }, { x: 5, y: 72, isOutlier: false }, { x: 7, y: 88, isOutlier: false },
+                    { x: 8, y: 95, isOutlier: false }, { x: 9, y: 25, isOutlier: true, name: "용의자 A" }
+                ],
+                correctType: "positive",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "난 9시간 공부해서 25점 맞았다구!", isLiar: true },
+                    { id: 'B', name: '용의자 B', text: "난 2시간 공부해서 45점 나왔어.", isLiar: false },
+                    { id: 'C', name: '용의자 C', text: "난 7시간 공부해서 88점 받았지.", isLiar: false }
+                ],
+                deductions: [
+                    "공부 시간이 늘수록 점수도 높아진다. (양의 상관관계)",
+                    "공부 시간이 늘수록 점수가 떨어진다.",
+                    "공부 시간과 점수는 상관없다."
+                ],
+                correctDeductionIdx: 0
+            },
+            {
+                id: 2, diffBadge: "⭐ 입문", title: "야외 기온과 핫초코 매출 사건", subtitle: "기온 변화와 음료 판매량 분석!",
+                xLabel: "야외 기온 (°C)", yLabel: "핫초코 판매량 (잔)", xDomain: [-10, 20], yDomain: [0, 200], targetSlope: -0.9,
+                points: [
+                    { x: -8, y: 180, isOutlier: false }, { x: -5, y: 160, isOutlier: false }, { x: -2, y: 140, isOutlier: false },
+                    { x: 2, y: 110, isOutlier: false }, { x: 6, y: 80, isOutlier: false }, { x: 10, y: 50, isOutlier: false },
+                    { x: 15, y: 20, isOutlier: false }, { x: 12, y: 185, isOutlier: true, name: "용의자 C" }
+                ],
+                correctType: "negative",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "영하 8도에는 핫초코가 180잔이나 팔렸어!", isLiar: false },
+                    { id: 'B', name: '용의자 B', text: "기온이 10도로 올라가니 50잔만 팔렸지.", isLiar: false },
+                    { id: 'C', name: '용의자 C', text: "따뜻한 12도에 나 혼자 핫초코 185잔을 팔았어!", isLiar: true }
+                ],
+                deductions: [
+                    "기온이 올라갈수록 핫초코 판매량은 늘어난다.",
+                    "기온이 올라갈수록 핫초코 판매량은 감소한다. (음의 상관관계)",
+                    "기온과 핫초코 판매량은 아무 관련이 없다."
+                ],
+                correctDeductionIdx: 1
+            },
+            {
+                id: 3, diffBadge: "⭐⭐ 초급", title: "키와 수학 점수의 무관성 사건", subtitle: "신체 조건과 성적의 함정을 밝히세요.",
+                xLabel: "학생 신장 (cm)", yLabel: "수학 시험 점수 (점)", xDomain: [140, 190], yDomain: [0, 100], targetSlope: 0.0,
+                points: [
+                    { x: 145, y: 85, isOutlier: false }, { x: 150, y: 30, isOutlier: false }, { x: 155, y: 92, isOutlier: false },
+                    { x: 162, y: 40, isOutlier: false }, { x: 168, y: 78, isOutlier: false }, { x: 175, y: 25, isOutlier: false },
+                    { x: 182, y: 88, isOutlier: false }, { x: 188, y: 10, isOutlier: true, name: "용의자 B" }
+                ],
+                correctType: "none",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "키가 145cm로 작아도 85점 나왔어!", isLiar: false },
+                    { id: 'B', name: '용의자 B', text: "키 188cm면 정비례 법칙으로 100점이어야 해!", isLiar: true },
+                    { id: 'C', name: '용의자 C', text: "키가 182cm지만 88점이었지.", isLiar: false }
+                ],
+                deductions: [
+                    "키가 클수록 수학 점수가 비례해서 높아진다.",
+                    "키가 클수록 수학 점수가 떨어진다.",
+                    "학생의 키와 수학 점수 사이에는 상관관계가 없다."
+                ],
+                correctDeductionIdx: 2
+            },
+            {
+                id: 4, diffBadge: "⭐⭐ 초급", title: "스마트폰 사용과 체력 등급 사건", subtitle: "디지털 기기 사용량과 기초 체력",
+                xLabel: "일일 사용시간 (시간)", yLabel: "체력 평가 점수 (점)", xDomain: [0, 10], yDomain: [0, 100], targetSlope: -0.8,
+                points: [
+                    { x: 1, y: 92, isOutlier: false }, { x: 2, y: 85, isOutlier: false }, { x: 3, y: 75, isOutlier: false },
+                    { x: 5, y: 55, isOutlier: false }, { x: 6, y: 45, isOutlier: false }, { x: 8, y: 20, isOutlier: false },
+                    { x: 7, y: 90, isOutlier: true, name: "용의자 A" }
+                ],
+                correctType: "negative",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "하루 7시간폰 보고도 체력 90점 유지 중!", isLiar: true },
+                    { id: 'B', name: '용의자 B', text: "하루 1시간만 사용하니 체력 92점이야.", isLiar: false },
+                    { id: 'C', name: '용의자 C', text: "하루 8시간 사용하니 체력 20점으로 떨어졌어.", isLiar: false }
+                ],
+                deductions: [
+                    "스마트폰 사용시간이 길수록 체력 점수가 높아진다.",
+                    "스마트폰 사용시간이 길수록 체력 점수가 떨어진다. (음의 상관관계)",
+                    "사용시간과 체력 점수는 관련이 없다."
+                ],
+                correctDeductionIdx: 1
+            },
+            {
+                id: 5, diffBadge: "⭐⭐⭐ 중급", title: "중고차 주행거리와 가격 사건", subtitle: "차량 마일리지와 시장 거래가 분석",
+                xLabel: "주행거리 (만 km)", yLabel: "중고차 가격 (만원)", xDomain: [0, 20], yDomain: [0, 3000], targetSlope: -0.9,
+                points: [
+                    { x: 2, y: 2700, isOutlier: false }, { x: 5, y: 2200, isOutlier: false }, { x: 8, y: 1800, isOutlier: false },
+                    { x: 12, y: 1200, isOutlier: false }, { x: 15, y: 800, isOutlier: false }, { x: 18, y: 400, isOutlier: false },
+                    { x: 16, y: 2800, isOutlier: true, name: "용의자 C" }
+                ],
+                correctType: "negative",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "주행거리 2만km 차를 2700만원에 팔았지.", isLiar: false },
+                    { id: 'B', name: '용의자 B', text: "15만km나 타서 800만원으로 가격이 떨어졌어.", isLiar: false },
+                    { id: 'C', name: '용의자 C', text: "16만km 넘게 탔지만 신차값 2800만원에 팔았어!", isLiar: true }
+                ],
+                deductions: [
+                    "주행거리가 길수록 중고차 가격은 높아진다.",
+                    "주행거리가 길수록 중고차 가격은 낮아진다. (음의 상관관계)",
+                    "주행거리와 중고차 가격은 관련이 없다."
+                ],
+                correctDeductionIdx: 1
+            },
+            {
+                id: 6, diffBadge: "⭐⭐⭐ 중급", title: "카페인 섭취와 업무 집중도 사건", subtitle: "커피 잔 수와 업무 효율의 착시",
+                xLabel: "카페인 섭취 (잔)", yLabel: "집중도 측정치 (점)", xDomain: [0, 10], yDomain: [0, 100], targetSlope: 0.0,
+                points: [
+                    { x: 1, y: 70, isOutlier: false }, { x: 2, y: 40, isOutlier: false }, { x: 3, y: 85, isOutlier: false },
+                    { x: 5, y: 30, isOutlier: false }, { x: 6, y: 75, isOutlier: false }, { x: 8, y: 50, isOutlier: false },
+                    { x: 9, y: 5, isOutlier: true, name: "용의자 A" }
+                ],
+                correctType: "none",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "커피 9잔 마시고 비례 법칙으로 집중도 100점 돌파했어!", isLiar: true },
+                    { id: 'B', name: '용의자 B', text: "난 1잔 마시고 70점 concentrate 유지 중이야.", isLiar: false },
+                    { id: 'C', name: '용의자 C', text: "난 8잔 마셔도 50점 정도야.", isLiar: false }
+                ],
+                deductions: [
+                    "커피를 많이 마실수록 집중도가 계속 비례해서 올라간다.",
+                    "커피를 마실수록 집중도가 항상 비례해서 떨어진다.",
+                    "커피 섭취량과 업무 집중도는 뚜렷한 상관관계가 없다."
+                ],
+                correctDeductionIdx: 2
+            },
+            {
+                id: 7, diffBadge: "⭐⭐⭐⭐ 고급", title: "지하철역 거리와 아파트 시세 사건", subtitle: "역세권 프리미엄과 부동산 가격",
+                xLabel: "역과의 거리 (m)", yLabel: "평당 매매가 (만원)", xDomain: [0, 2000], yDomain: [0, 5000], targetSlope: -0.8,
+                points: [
+                    { x: 200, y: 4500, isOutlier: false }, { x: 500, y: 3800, isOutlier: false }, { x: 800, y: 3000, isOutlier: false },
+                    { x: 1200, y: 2200, isOutlier: false }, { x: 1600, y: 1500, isOutlier: false },
+                    { x: 1800, y: 4800, isOutlier: true, name: "용의자 B" }
+                ],
+                correctType: "negative",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "역에서 200m 초역세권이라 평당 4500만원!", isLiar: false },
+                    { id: 'B', name: '용의자 B', text: "역에서 1800m 떨어진 시골 아파트인데 평당 4800만원이라구!", isLiar: true },
+                    { id: 'C', name: '용의자 C', text: "역에서 1200m 떨어져서 평당 2200만원이야.", isLiar: false }
+                ],
+                deductions: [
+                    "지하철역과의 거리가 멀어질수록 아파트 가격은 높아진다.",
+                    "지하철역과의 거리가 멀어질수록 아파트 가격은 떨어진다. (음의 상관관계)",
+                    "역과의 거리와 아파트 가격은 무관하다."
+                ],
+                correctDeductionIdx: 1
+            },
+            {
+                id: 8, diffBadge: "⭐⭐⭐⭐⭐ 심화", title: "아이스크림 매출과 해수욕장 사고 사건", subtitle: "의사 상관관계(Spurious Correlation)의 함정",
+                xLabel: "아이스크림 매출 (만원)", yLabel: "해수욕장 구조 건수 (건)", xDomain: [0, 500], yDomain: [0, 50], targetSlope: 0.9,
+                points: [
+                    { x: 50, y: 5, isOutlier: false }, { x: 120, y: 12, isOutlier: false }, { x: 200, y: 22, isOutlier: false },
+                    { x: 350, y: 36, isOutlier: false }, { x: 450, y: 46, isOutlier: false },
+                    { x: 420, y: 2, isOutlier: true, name: "용의자 C" }
+                ],
+                correctType: "positive",
+                suspects: [
+                    { id: 'A', name: '용의자 A', text: "아이스크림 매출 200만원 날에 22건 구조되었지.", isLiar: false },
+                    { id: 'B', name: '용의자 B', text: "매출 450만원 대폭발 날에 구조도 46건 발생했어.", isLiar: false },
+                    { id: 'C', name: '용의자 C', text: "매출 420만원 날에 수영객 폭증했는데 구조 건수는 2건뿐이야!", isLiar: true }
+                ],
+                deductions: [
+                    "아이스크림 매출과 구조 건수는 양의 상관관계를 보인다. (기온 상승 매개변수)",
+                    "아이스크림을 먹을수록 수영을 못하게 된다.",
+                    "두 변수는 아무런 관련이 없다."
+                ],
+                correctDeductionIdx: 0
+            }
+        ];
+
+        let currentCaseIdx = 0;
+        let selectedOutlierFound = false;
+        let selectedCorrelationType = null;
+        let detectiveScore = 0;
+        let caseMistakesCount = 0;
+        let userSlope = 0.0;
+
+        window.selectCorrelationType = function(type) {
+            selectedCorrelationType = type;
+            ['positive', 'negative', 'none'].forEach(t => {
+                const btn = document.getElementById(`opt-${t}`);
+                if (!btn) return;
+                if (t === type) {
+                    btn.className = "p-2.5 text-center rounded-xl bg-sky-500 text-white font-bold border border-sky-400 shadow-md transition";
+                } else {
+                    btn.className = "p-2.5 text-center rounded-xl bg-slate-800 border border-slate-700 text-xs font-bold hover:border-sky-500 transition text-slate-300";
+                }
+            });
+        };
+
+        function getDetectiveRank(score) {
+            if (score >= 2500) return { title: "데이터 셜록 홈즈" };
+            if (score >= 1800) return { title: "수석 명탐정" };
+            if (score >= 1200) return { title: "베테랑 수사관" };
+            if (score >= 700) return { title: "사건 담당 수사관" };
+            if (score >= 300) return { title: "초보 데이터 형사" };
+            return { title: "수습 데이터 탐정" };
+        }
+
+        function renderCaseSelectButtons() {
+            const container = document.getElementById('case-select-buttons');
+            if (!container) return;
+            container.innerHTML = '';
+
+            detectiveCases.forEach((c, idx) => {
+                const btn = document.createElement('button');
+                const isCurrent = idx === currentCaseIdx;
+                btn.onclick = () => { currentCaseIdx = idx; renderDetectiveCase(); };
+                btn.className = `px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition flex items-center space-x-1.5 ${
+                    isCurrent ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30 border border-sky-400' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'
+                }`;
+                btn.innerHTML = `<span>사건 #${c.id}</span> <span class="text-[10px] opacity-80">(${c.diffBadge})</span>`;
+                container.appendChild(btn);
+            });
+        }
+
+        function renderDetectiveCase() {
+            const c = detectiveCases[currentCaseIdx];
+            caseMistakesCount = 0;
+            selectedOutlierFound = false;
+            selectedCorrelationType = null;
+            userSlope = 0.0;
+
+            document.getElementById('user-slope-slider').value = 0;
+            document.getElementById('user-slope-display').innerText = `기울기: 0.0`;
+
+            document.getElementById('case-badge').innerText = `사건 #${c.id}`;
+            document.getElementById('case-difficulty-badge').innerText = `난이도: ${c.diffBadge}`;
+            document.getElementById('case-title').innerText = c.title;
+            document.getElementById('case-subtitle').innerText = c.subtitle;
+            document.getElementById('case-progress-indicator').innerText = `${currentCaseIdx + 1} / ${detectiveCases.length}`;
+
+            renderCaseSelectButtons();
+
+            const suspectsList = document.getElementById('suspects-list');
+            suspectsList.innerHTML = '';
+            c.suspects.forEach(s => {
+                const div = document.createElement('div');
+                div.className = "p-3 bg-slate-900/90 rounded-xl border border-slate-800 text-xs flex justify-between items-center";
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold text-slate-200">${s.name}</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">"${s.text}"</div>
+                    </div>
+                    <span id="suspect-tag-${s.id}" class="px-2 py-1 rounded-lg text-[10px] bg-slate-800 text-slate-400 font-bold">수사 중</span>
+                `;
+                suspectsList.appendChild(div);
+            });
+
+            const select = document.getElementById('deduction-select');
+            select.innerHTML = '<option value="">-- 결론을 선택하세요 --</option>';
+            c.deductions.forEach((d, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.innerText = d;
+                select.appendChild(opt);
+            });
+
+            window.selectCorrelationType(null);
+            drawDetectiveCanvas();
+        }
+
+        window.updateUserSlope = function(val) {
+            userSlope = parseFloat(val);
+            document.getElementById('user-slope-display').innerText = `기울기: ${userSlope > 0 ? '+' : ''}${userSlope.toFixed(1)}`;
+            drawDetectiveCanvas();
+        };
+
+        window.nextCase = function() {
+            if (currentCaseIdx < detectiveCases.length - 1) {
+                currentCaseIdx++;
+                renderDetectiveCase();
+            } else {
+                window.showToast('🎉 모든 수사 사건을 완료했습니다!', 'success');
+            }
+        };
+
+        window.prevCase = function() {
+            if (currentCaseIdx > 0) {
+                currentCaseIdx--;
+                renderDetectiveCase();
+            }
+        };
+
+        function drawDetectiveCanvas() {
+            const canvas = document.getElementById('detective-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const c = detectiveCases[currentCaseIdx];
+
+            const width = canvas.width;
+            const height = canvas.height;
+            const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(margin.left, margin.top, width - margin.left - margin.right, height - margin.top - margin.bottom);
+
+            const xScale = (val) => margin.left + ((val - c.xDomain[0]) / (c.xDomain[1] - c.xDomain[0])) * (width - margin.left - margin.right);
+            const yScale = (val) => height - margin.bottom - ((val - c.yDomain[0]) / (c.yDomain[1] - c.yDomain[0])) * (height - margin.top - margin.bottom);
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const xVal = c.xDomain[0] + ((c.xDomain[1] - c.xDomain[0]) / 5) * i;
+                const xPos = xScale(xVal);
+                ctx.beginPath(); ctx.moveTo(xPos, margin.top); ctx.lineTo(xPos, height - margin.bottom); ctx.stroke();
+                ctx.fillStyle = '#94a3b8'; ctx.font = '10px Noto Sans KR'; ctx.textAlign = 'center';
+                ctx.fillText(xVal.toFixed(0), xPos, height - margin.bottom + 15);
+            }
+
+            for (let j = 0; j <= 5; j++) {
+                const yVal = c.yDomain[0] + ((c.yDomain[1] - c.yDomain[0]) / 5) * j;
+                const yPos = yScale(yVal);
+                ctx.beginPath(); ctx.moveTo(margin.left, yPos); ctx.lineTo(width - margin.right, yPos); ctx.stroke();
+                ctx.fillStyle = '#94a3b8'; ctx.font = '10px Noto Sans KR'; ctx.textAlign = 'right';
+                ctx.fillText(yVal.toFixed(0), margin.left - 8, yPos + 3);
+            }
+
+            ctx.fillStyle = '#38bdf8'; ctx.font = '11px Noto Sans KR'; ctx.textAlign = 'center';
+            ctx.fillText(c.xLabel, margin.left + (width - margin.left - margin.right) / 2, height - 12);
+
+            if (document.getElementById('toggle-laser-ruler').checked) {
+                ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2.5; ctx.setLineDash([6, 4]);
+                const midY = (c.yDomain[0] + c.yDomain[1]) / 2;
+                const spanY = (c.yDomain[1] - c.yDomain[0]) / 2;
+                ctx.beginPath();
+                ctx.moveTo(xScale(c.xDomain[0]), yScale(midY - (userSlope * spanY)));
+                ctx.lineTo(xScale(c.xDomain[1]), yScale(midY + (userSlope * spanY)));
+                ctx.stroke(); ctx.setLineDash([]);
+            }
+
+            c.points.forEach((p) => {
+                const cx = xScale(p.x); const cy = yScale(p.y);
+                ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+                if (p.isOutlier && selectedOutlierFound) {
+                    ctx.fillStyle = '#f43f5e'; ctx.shadowColor = '#f43f5e'; ctx.shadowBlur = 15;
+                } else {
+                    ctx.fillStyle = '#38bdf8'; ctx.shadowBlur = 0;
+                }
+                ctx.fill(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.shadowBlur = 0;
+            });
+        }
+
+        document.getElementById('detective-canvas')?.addEventListener('click', function(e) {
+            const rect = this.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) * (this.width / rect.width);
+            const clickY = (e.clientY - rect.top) * (this.height / rect.height);
+
+            const c = detectiveCases[currentCaseIdx];
+            const margin = { top: 30, right: 30, bottom: 50, left: 60 };
+            const xScale = (val) => margin.left + ((val - c.xDomain[0]) / (c.xDomain[1] - c.xDomain[0])) * (this.width - margin.left - margin.right);
+            const yScale = (val) => this.height - margin.bottom - ((val - c.yDomain[0]) / (c.yDomain[1] - c.yDomain[0])) * (this.height - margin.top - margin.bottom);
+
+            c.points.forEach(p => {
+                const cx = xScale(p.x); const cy = yScale(p.y);
+                if (Math.hypot(clickX - cx, clickY - cy) <= 15) {
+                    if (p.isOutlier) {
+                        window.playSound('success');
+                        selectedOutlierFound = true;
+                        window.showToast(`🎯 이상치 적중! ${p.name}의 알리바이 거짓!`, 'success');
+                        drawDetectiveCanvas();
+                    } else {
+                        window.playSound('error');
+                        caseMistakesCount++;
+                        window.showToast(`❌ 추세선 내의 일반적 데이터 점입니다. (-20pt)`, 'error');
+                    }
+                }
+            });
+        });
+
+        window.submitCaseDeduction = function() {
+            const c = detectiveCases[currentCaseIdx];
+            const selectVal = document.getElementById('deduction-select').value;
+
+            if (!selectedOutlierFound) return window.showToast('❌ 그래프에서 이상치 점을 먼저 클릭하세요!', 'error');
+            if (!selectedCorrelationType) return window.showToast('❌ 상관관계 유형(양/음/없음)을 선택하세요!', 'error');
+            if (selectVal === '') return window.showToast('❌ 최종 수사 소평을 선택하세요!', 'error');
+
+            if (selectedCorrelationType === c.correctType && parseInt(selectVal) === c.correctDeductionIdx) {
+                window.playSound('success');
+                const caseTotal = Math.max(50, 350 - (caseMistakesCount * 20));
+                detectiveScore += caseTotal;
+                const rankInfo = getDetectiveRank(detectiveScore);
+
+                document.getElementById('detective-score-val').innerText = `${detectiveScore} PTS (${rankInfo.title})`;
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+
+                document.getElementById('res-det-title').innerText = c.title;
+                document.getElementById('res-det-case-total').innerText = `+${caseTotal} PTS`;
+                document.getElementById('res-det-cum-score').innerText = `${detectiveScore} PTS`;
+                document.getElementById('res-det-rank').innerText = rankInfo.title;
+
+                window.lastTeacherReport = `[수사 성적표] 닉네임: ${document.getElementById('player-nickname')?.value || '학생'} | 점수: ${detectiveScore} PTS (${rankInfo.title}) | 사건: #${c.id} ${c.title}`;
+                
+                // GAS 시트 전송
+                sendScoreToGAS('detective', {
+                    nickname: document.getElementById('player-nickname')?.value || '탐정',
+                    roomCode: document.getElementById('room-code-input')?.value || 'ROOM101',
+                    score: detectiveScore,
+                    details: `사건 #${c.id} 완료 (${rankInfo.title})`
+                });
+
+                window.openModal('detective-result-modal');
+            } else {
+                window.playSound('error');
+                caseMistakesCount++;
+                window.showToast('❌ 수사 결론에 오류가 있습니다!', 'error');
+            }
+        };
+
+        window.copyTeacherReport = function() {
+            if (!window.lastTeacherReport) return;
+            const tempInput = document.createElement('textarea');
+            tempInput.value = window.lastTeacherReport;
+            document.body.appendChild(tempInput); tempInput.select();
+            document.execCommand('copy'); document.body.removeChild(tempInput);
+            window.showToast('📋 교사 제출용 성적표가 복사되었습니다!', 'success');
+        };
+
+        // ================= BOSS RAID MODE CODE =================
+        let bossMaxHp = 50000;
+        let bossHp = 50000;
+        let bossPhase = 1;
+        let myTotalDamage = 0;
+        let comboCount = 1;
+        let currentBossQuestion = null;
+        let bossAttackStartTime = Date.now();
+
+        window.setBossDifficulty = function(hp) {
+            bossMaxHp = hp; bossHp = hp;
+            ['20000', '50000', '100000'].forEach(h => {
+                const btn = document.getElementById(`diff-${h}`);
+                if (btn) btn.className = (h == hp) ? "px-2 py-0.5 rounded-lg bg-rose-600 text-white font-bold transition" : "px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold transition";
+            });
+            updateBossHpUI(bossHp);
+            window.showToast(`보스 난이도가 변경되었습니다 (${hp.toLocaleString()} HP)`, 'info');
+        };
+
+        function updateBossHpUI(hp) {
+            bossHp = Math.max(0, Math.min(bossMaxHp, hp));
+            const pct = (bossHp / bossMaxHp) * 100;
+            document.getElementById('boss-hp-bar').style.width = `${pct}%`;
+            document.getElementById('boss-hp-text').innerText = `${bossHp.toLocaleString()} / ${bossMaxHp.toLocaleString()} HP`;
+
+            if (bossHp <= 0) {
+                window.playSound('success');
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                document.getElementById('res-boss-my-dmg').innerText = `${myTotalDamage.toLocaleString()} DMG`;
+                const listEl = document.getElementById('res-boss-podium-list');
+                const nick = document.getElementById('player-nickname')?.value || '나';
+                if (listEl) {
+                    listEl.innerHTML = `
+                        <div class="flex justify-between p-1.5 bg-slate-800/80 rounded-lg text-xs font-bold text-amber-300">
+                            <span>🥇 1위: ${nick}</span>
+                            <span class="font-digital">${myTotalDamage.toLocaleString()} DMG</span>
+                        </div>
+                    `;
+                }
+
+                // GAS 시트 전송
+                sendScoreToGAS('boss', {
+                    nickname: nick,
+                    roomCode: document.getElementById('room-code-input')?.value || 'ROOM101',
+                    score: myTotalDamage,
+                    details: `보스 토벌 성공 (기여도: ${myTotalDamage} DMG)`
+                });
+
+                window.openModal('boss-victory-modal');
+                return;
+            }
+
+            if (pct <= 30 && bossPhase !== 3) {
+                bossPhase = 3;
+                document.getElementById('boss-phase-badge').innerText = "페이즈 3: 광폭화 패턴 분석";
+            } else if (pct <= 70 && pct > 30 && bossPhase !== 2) {
+                bossPhase = 2;
+                document.getElementById('boss-phase-badge').innerText = "페이즈 2: 데이터 노이즈 교란";
+            }
+        }
+
+        function renderBossQuestion() {
+            bossAttackStartTime = Date.now();
+            const types = ['positive', 'negative', 'none'];
+            const targetType = types[Math.floor(Math.random() * types.length)];
+            let pts = [];
+            const n = 25;
+
+            for (let i = 0; i < n; i++) {
+                const rx = Math.random() * 100;
+                let ry;
+                if (targetType === 'positive') ry = rx * 0.8 + (Math.random() * 25);
+                else if (targetType === 'negative') ry = (100 - rx) * 0.8 + (Math.random() * 25);
+                else ry = Math.random() * 100;
+                pts.push({ x: rx, y: ry });
+            }
+
+            currentBossQuestion = { type: targetType, points: pts };
+            drawBossScatterCanvas();
+        }
+
+        function drawBossScatterCanvas() {
+            const canvas = document.getElementById('boss-scatter-canvas');
+            if (!canvas || !currentBossQuestion) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#090d16'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            currentBossQuestion.points.forEach(p => {
+                const cx = (p.x / 100) * (canvas.width - 30) + 15;
+                const cy = canvas.height - ((p.y / 100) * (canvas.height - 30) + 15);
+                ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#f43f5e'; ctx.fill();
+            });
+        }
+
+        window.attackBoss = function(type) {
+            if (!currentBossQuestion) return;
+            if (type === currentBossQuestion.type) {
+                window.playSound('success');
+                const elapsed = (Date.now() - bossAttackStartTime) / 1000;
+                const speedBonus = elapsed <= 3 ? 50 : 0;
+                const dmg = Math.floor((100 + speedBonus) * comboCount);
+                
+                myTotalDamage += dmg;
+                bossHp = Math.max(0, bossHp - dmg);
+                comboCount = Math.min(5, comboCount + 1);
+
+                document.getElementById('boss-combo-count').innerText = `COMBO x${comboCount}`;
+                document.getElementById('my-total-damage').innerText = `내 기여도: ${myTotalDamage.toLocaleString()} DMG`;
+                updateBossHpUI(bossHp);
+                renderLiveBossLeaderboard();
+                window.showToast(`💥 타격 성공! +${dmg} DMG!`, 'success');
+            } else {
+                window.playSound('error');
+                comboCount = 1;
+                myTotalDamage = Math.max(0, myTotalDamage - 100);
+                bossHp = Math.min(bossMaxHp, bossHp + 100);
+
+                document.getElementById('boss-combo-count').innerText = `COMBO x1`;
+                document.getElementById('my-total-damage').innerText = `내 기여도: ${myTotalDamage.toLocaleString()} DMG`;
+                updateBossHpUI(bossHp);
+                renderLiveBossLeaderboard();
+                window.showToast(`❌ 오답! 내 점수 -100 DMG & 보스 HP +100 회복!`, 'error');
+            }
+            renderBossQuestion();
+        };
+
+        function renderLiveBossLeaderboard() {
+            const listEl = document.getElementById('live-boss-leaderboard-list');
+            if (!listEl) return;
+            const nick = document.getElementById('player-nickname')?.value || '나';
+            listEl.innerHTML = `
+                <div class="flex justify-between items-center p-2 rounded-xl bg-slate-900 border border-slate-800">
+                    <div class="flex items-center space-x-2"><span class="font-bold text-amber-400 font-digital w-4">1</span><span class="font-bold text-slate-200">${nick}</span></div>
+                    <span class="font-digital text-emerald-400 font-bold">${myTotalDamage.toLocaleString()} DMG</span>
+                </div>
+            `;
+        }
+
+        // ================= RACING MODE CODE =================
+        let raceSpeed = 0;
+        let maxRaceSpeed = 0;
+        let raceScore = 0;
+        let raceCombo = 0;
+        let maxRaceCombo = 0;
+        let raceTimer = 30.0;
+        let raceInterval = null;
+        let isRacing = false;
+        let currentRaceQuestion = null;
+        let isDirectionAnswered = false;
+        let roadScrollX = 0;
+
+        window.startRacingGame = function() {
+            raceSpeed = 60; maxRaceSpeed = 60; raceScore = 0; raceCombo = 0; maxRaceCombo = 0; raceTimer = 30.0;
+            isRacing = true;
+            document.getElementById('start-race-btn').disabled = true;
+            nextRaceQuestion();
+
+            if (raceInterval) clearInterval(raceInterval);
+            raceInterval = setInterval(() => {
+                raceTimer -= 0.1;
+                if (raceTimer <= 0) {
+                    raceTimer = 0; clearInterval(raceInterval); raceInterval = null; isRacing = false;
+                    document.getElementById('start-race-btn').disabled = false;
+                    finishRacingGame();
+                }
+                document.getElementById('race-timer').innerText = `${raceTimer.toFixed(1)}s`;
+                document.getElementById('race-speed').innerText = `${Math.floor(raceSpeed)} KM/H`;
+                document.getElementById('race-score').innerText = raceScore;
+                document.getElementById('race-combo').innerText = `${raceCombo}x`;
+                drawRacingTrack();
+            }, 100);
+        };
+
+        window.quitRacingGame = function() {
+            if (raceInterval) {
+                clearInterval(raceInterval);
+                raceInterval = null;
+            }
+            isRacing = false;
+            raceSpeed = 0;
+            document.getElementById('start-race-btn').disabled = false;
+            document.getElementById('race-timer').innerText = '30.0s';
+            document.getElementById('race-speed').innerText = '0 KM/H';
+            drawRacingTrack();
+            window.showToast('스피드 레이싱이 중단되었습니다.', 'info');
+        };
+
+        window.resetRacingScreen = function() {
+            quitRacingGame();
+        };
+
+        function finishRacingGame() {
+            window.playSound('success');
+            confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+
+            const nick = document.getElementById('player-nickname')?.value || '학생';
+            let rankText = "C등급 (초보 드라이버)";
+            let rankGrade = "C";
+            if (raceScore >= 2000 || maxRaceSpeed >= 220) {
+                rankText = "🏆 S등급 (경주장의 셜록)"; rankGrade = "S";
+            } else if (raceScore >= 1200) {
+                rankText = "🥇 A등급 (스피드 레이서)"; rankGrade = "A";
+            } else if (raceScore >= 600) {
+                rankText = "🥈 B등급 (숙련 드라이버)"; rankGrade = "B";
+            }
+
+            document.getElementById('res-race-nick').innerText = nick;
+            document.getElementById('res-race-score').innerText = `${raceScore} PTS`;
+            document.getElementById('res-race-max-speed').innerText = `${Math.floor(maxRaceSpeed)} KM/H`;
+            document.getElementById('res-race-max-combo').innerText = `${maxRaceCombo}x`;
+            document.getElementById('res-race-rank').innerText = rankText;
+
+            window.lastRaceReport = `[레이싱 성적표] 닉네임: ${nick} | 점수: ${raceScore} PTS (${rankText}) | 최고속도: ${Math.floor(maxRaceSpeed)} KM/H | 최대 콤보: ${maxRaceCombo}x`;
+            
+            // GAS 시트 전송
+            sendScoreToGAS('racing', {
+                nickname: nick,
+                roomCode: document.getElementById('room-code-input')?.value || 'ROOM101',
+                score: raceScore,
+                maxSpeed: Math.floor(maxRaceSpeed),
+                maxCombo: maxRaceCombo,
+                rankGrade: rankGrade
+            });
+
+            window.openModal('racing-result-modal');
+        }
+
+        window.copyRaceReport = function() {
+            if (!window.lastRaceReport) return;
+            const tempInput = document.createElement('textarea');
+            tempInput.value = window.lastRaceReport;
+            document.body.appendChild(tempInput); tempInput.select();
+            document.execCommand('copy'); document.body.removeChild(tempInput);
+            window.showToast('📋 교사 제출용 레이싱 성적표가 복사되었습니다!', 'success');
+        };
+
+        function nextRaceQuestion() {
+            isDirectionAnswered = false;
+            const types = ['positive', 'negative', 'none'];
+            const targetType = types[Math.floor(Math.random() * types.length)];
+            const isStrong = targetType !== 'none' ? Math.random() < 0.5 : false;
+            
+            currentRaceQuestion = { type: targetType, strength: isStrong ? 'strong' : 'weak' };
+            
+            const strBox = document.getElementById('race-strength-box');
+            const q1Tag = document.getElementById('q1-status-tag');
+            const q2Tag = document.getElementById('q2-status-tag');
+            const banner = document.getElementById('racing-status-banner');
+
+            if (strBox) {
+                strBox.classList.add('opacity-50', 'pointer-events-none');
+                strBox.classList.remove('border-amber-500/50', 'ring-2', 'ring-amber-500/30');
+            }
+            if (q1Tag) {
+                q1Tag.innerText = "필수 선택";
+                q1Tag.className = "text-[10px] bg-sky-500/20 px-2 py-0.5 rounded text-sky-300 font-normal";
+            }
+            if (q2Tag) {
+                q2Tag.innerText = "1단계 완료 후 해금";
+                q2Tag.className = "text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-400 font-normal";
+            }
+            if (banner) {
+                banner.innerText = "🏁 1단계: 상관관계 방향(양/음/없음)을 먼저 선택하세요!";
+                banner.className = "absolute top-2 left-4 px-3 py-1 rounded-full bg-slate-900/80 border border-sky-400/40 text-[11px] font-bold text-sky-300 backdrop-blur-md";
+            }
+
+            drawRacingScatter();
+        }
+
+        function drawRacingScatter() {
+            const canvas = document.getElementById('racing-scatter-canvas');
+            if (!canvas || !currentRaceQuestion) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const noiseFactor = currentRaceQuestion.strength === 'strong' ? 8 : 28;
+
+            for (let i = 0; i < 22; i++) {
+                const rx = Math.random() * 100;
+                let ry;
+                if (currentRaceQuestion.type === 'positive') {
+                    ry = rx * 0.8 + (Math.random() * noiseFactor);
+                } else if (currentRaceQuestion.type === 'negative') {
+                    ry = (100 - rx) * 0.8 + (Math.random() * noiseFactor);
+                } else {
+                    ry = Math.random() * 100;
+                }
+
+                const cx = (rx / 100) * (canvas.width - 40) + 20;
+                const cy = canvas.height - ((ry / 100) * (canvas.height - 40) + 20);
+                
+                ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.fillStyle = currentRaceQuestion.strength === 'strong' ? '#fbbf24' : '#38bdf8';
+                ctx.fill();
+            }
+        }
+
+        window.answerRaceQuestion = function(type) {
+            if (!isRacing || !currentRaceQuestion) return;
+            if (type === currentRaceQuestion.type) {
+                window.playSound('success');
+                raceCombo++;
+                maxRaceCombo = Math.max(maxRaceCombo, raceCombo);
+                raceSpeed = Math.min(260, raceSpeed + 35);
+                maxRaceSpeed = Math.max(maxRaceSpeed, raceSpeed);
+                raceScore += 100 * raceCombo;
+
+                if (currentRaceQuestion.type === 'none') {
+                    window.showToast(`🚀 방향 적중! +35km/h`, 'success');
+                    nextRaceQuestion();
+                } else {
+                    isDirectionAnswered = true;
+                    window.showToast(`🚀 방향 적중! 2단계 강도 부스터 도전 가능!`, 'success');
+                    
+                    const strBox = document.getElementById('race-strength-box');
+                    const q1Tag = document.getElementById('q1-status-tag');
+                    const q2Tag = document.getElementById('q2-status-tag');
+                    const banner = document.getElementById('racing-status-banner');
+
+                    if (strBox) {
+                        strBox.classList.remove('opacity-50', 'pointer-events-none');
+                        strBox.classList.add('border-amber-500/50', 'ring-2', 'ring-amber-500/30');
+                    }
+                    if (q1Tag) {
+                        q1Tag.innerText = "통과 ✓";
+                        q1Tag.className = "text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded text-emerald-400 font-bold";
+                    }
+                    if (q2Tag) {
+                        q2Tag.innerText = "선택 가능!";
+                        q2Tag.className = "text-[10px] bg-amber-500/20 px-2 py-0.5 rounded text-amber-300 font-bold animate-pulse";
+                    }
+                    if (banner) {
+                        banner.innerText = "⚡ 2단계: 강함(조밀) vs 약함(퍼짐) 선택으로 가속!";
+                        banner.className = "absolute top-2 left-4 px-3 py-1 rounded-full bg-slate-900/80 border border-amber-400/60 text-[11px] font-bold text-amber-300 backdrop-blur-md animate-bounce";
+                    }
+                }
+            } else {
+                window.playSound('error');
+                raceCombo = 0;
+                raceSpeed = Math.max(30, raceSpeed - 30);
+                window.showToast(`⚠️ 오답 감속 페널티! -30km/h`, 'error');
+                nextRaceQuestion();
+            }
+        };
+
+        window.answerRaceStrength = function(strength) {
+            if (!isRacing || !currentRaceQuestion) return;
+            
+            if (!isDirectionAnswered) {
+                window.showToast(`⚠️ 먼저 1단계 상관관계 방향을 맞혀야 합니다!`, 'error');
+                return;
+            }
+
+            if (strength === currentRaceQuestion.strength) {
+                window.playSound('success');
+                raceCombo++;
+                maxRaceCombo = Math.max(maxRaceCombo, raceCombo);
+                raceSpeed = Math.min(300, raceSpeed + 20);
+                maxRaceSpeed = Math.max(maxRaceSpeed, raceSpeed);
+                raceScore += 50 * raceCombo;
+                window.showToast(`⚡ 강도 정답! +20km/h (+${50 * raceCombo}pt)`, 'success');
+            } else {
+                window.playSound('error');
+                raceCombo = 0;
+                raceSpeed = Math.max(30, raceSpeed - 30);
+                window.showToast(`⚠️ 강도 오답 페널티! -30km/h 감속`, 'error');
+            }
+            nextRaceQuestion();
+        };
+
+        function drawRacingTrack() {
+            const canvas = document.getElementById('racing-track-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            roadScrollX += (raceSpeed / 8);
+
+            ctx.fillStyle = '#0f172a'; ctx.fillRect(0, 0, w, h);
+
+            const curbSegmentWidth = 30;
+            const curbHeight = 10;
+            const totalCurbs = Math.ceil(w / curbSegmentWidth) + 2;
+            const curbOffset = roadScrollX % (curbSegmentWidth * 2);
+
+            for (let i = -2; i < totalCurbs; i++) {
+                const x = (i * curbSegmentWidth) - curbOffset;
+                ctx.fillStyle = (Math.floor(i) % 2 === 0) ? '#f43f5e' : '#ffffff';
+                ctx.fillRect(x, 0, curbSegmentWidth, curbHeight);
+                ctx.fillRect(x, h - curbHeight, curbSegmentWidth, curbHeight);
+            }
+
+            ctx.strokeStyle = '#f8fafc'; ctx.lineWidth = 4;
+            ctx.setLineDash([30, 25]);
+            ctx.lineDashOffset = -roadScrollX;
+            ctx.beginPath(); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (raceSpeed > 140) {
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)'; ctx.lineWidth = 1.5;
+                for (let i = 0; i < 8; i++) {
+                    const lineY = 15 + ((i * 19) % (h - 30));
+                    const lineX = w - ((roadScrollX * (2 + i % 3)) % w);
+                    ctx.beginPath(); ctx.moveTo(lineX, lineY); ctx.lineTo(lineX - 60 - (raceSpeed * 0.3), lineY); ctx.stroke();
+                }
+            }
+
+            const carX = 120 + Math.sin(Date.now() / 150) * (raceSpeed > 180 ? 3 : 1);
+            const carY = h / 2;
+
+            if (raceSpeed > 100) {
+                const flameLength = 15 + Math.random() * (raceSpeed * 0.25);
+                const grad = ctx.createLinearGradient(carX - 35 - flameLength, carY, carX - 35, carY);
+                grad.addColorStop(0, 'rgba(245, 158, 11, 0)');
+                grad.addColorStop(0.5, '#f59e0b');
+                grad.addColorStop(1, '#f43f5e');
+
+                ctx.fillStyle = grad; ctx.beginPath();
+                ctx.moveTo(carX - 35, carY - 6);
+                ctx.lineTo(carX - 35 - flameLength, carY);
+                ctx.lineTo(carX - 35, carY + 6);
+                ctx.closePath(); ctx.fill();
+            }
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.beginPath(); ctx.ellipse(carX, carY + 4, 34, 14, 0, 0, Math.PI * 2); ctx.fill();
+
+            const carGrad = ctx.createLinearGradient(carX - 30, carY - 12, carX + 30, carY + 12);
+            carGrad.addColorStop(0, '#0284c7'); carGrad.addColorStop(0.5, '#38bdf8'); carGrad.addColorStop(1, '#0284c7');
+
+            ctx.fillStyle = carGrad; ctx.beginPath();
+            ctx.roundRect(carX - 30, carY - 14, 60, 28, [12, 18, 18, 12]); ctx.fill();
+            ctx.strokeStyle = '#e0f2fe'; ctx.lineWidth = 1.5; ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(carX - 22, carY - 17, 12, 4);
+            ctx.fillRect(carX + 12, carY - 17, 12, 4);
+            ctx.fillRect(carX - 22, carY + 13, 12, 4);
+            ctx.fillRect(carX + 12, carY + 13, 12, 4);
+
+            ctx.fillStyle = '#090d16';
+            ctx.beginPath(); ctx.roundRect(carX - 8, carY - 9, 22, 18, [6, 10, 10, 6]); ctx.fill();
+            ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 1; ctx.stroke();
+
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.25)';
+            ctx.beginPath();
+            ctx.moveTo(carX + 30, carY - 10); ctx.lineTo(carX + 130, carY - 30);
+            ctx.lineTo(carX + 130, carY + 30); ctx.lineTo(carX + 30, carY + 10);
+            ctx.closePath(); ctx.fill();
+
+            ctx.fillStyle = '#fef08a'; ctx.beginPath();
+            ctx.arc(carX + 28, carY - 10, 3, 0, Math.PI * 2);
+            ctx.arc(carX + 28, carY + 10, 3, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ================= GAS BACKEND SYNC CODE =================
+        function sendScoreToGAS(mode, payload) {
+            if (!gasWebUrl) return;
+            
+            payload.mode = mode;
+            fetch(gasWebUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(() => {
+                window.showToast('📊 구글 시트에 성적이 동기화되었습니다!', 'success');
+            }).catch(e => {
+                console.error("GAS sync error:", e);
+            });
+        }
+
+        window.fetchLeaderboardFromGAS = function() {
+            const roomCode = document.getElementById('room-code-input')?.value || 'ROOM101';
+            
+            ['detective', 'boss', 'racing'].forEach(m => {
+                const el = document.getElementById(`ranking-list-${m}`);
+                if (el) el.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs"><i class="fa-solid fa-spinner animate-spin mr-1"></i> 동기화 중...</div>`;
+            });
+
+            if (!gasWebUrl) {
+                renderMockLeaderboard();
+                return;
+            }
+
+            fetch(`${gasWebUrl}?roomCode=${roomCode}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        renderRealLeaderboards(data);
+                    } else {
+                        renderMockLeaderboard();
+                    }
+                })
+                .catch(err => {
+                    renderMockLeaderboard();
+                });
+        };
+
+        function renderMockLeaderboard() {
+            const nick = document.getElementById('player-nickname')?.value || '탐정1';
+            
+            const elDet = document.getElementById('ranking-list-detective');
+            if (elDet) {
+                elDet.innerHTML = `
+                    <div class="flex justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <span class="font-bold text-amber-400">🥇 1위. ${nick}</span>
+                        <span class="font-digital text-emerald-400 font-bold">${detectiveScore} PTS</span>
+                    </div>
+                `;
+            }
+
+            const elBoss = document.getElementById('ranking-list-boss');
+            if (elBoss) {
+                elBoss.innerHTML = `
+                    <div class="flex justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <span class="font-bold text-amber-400">🥇 1위. ${nick}</span>
+                        <span class="font-digital text-rose-400 font-bold">${myTotalDamage.toLocaleString()} DMG</span>
+                    </div>
+                `;
+            }
+
+            const elRace = document.getElementById('ranking-list-racing');
+            if (elRace) {
+                elRace.innerHTML = `
+                    <div class="flex justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
+                        <span class="font-bold text-amber-400">🥇 1위. ${nick}</span>
+                        <span class="font-digital text-amber-300 font-bold">${raceScore} PTS</span>
+                    </div>
+                `;
+            }
+        }
+
+        function renderRealLeaderboards(data) {
+            const elDet = document.getElementById('ranking-list-detective');
+            if (elDet && data.detectiveRanking) {
+                if (data.detectiveRanking.length === 0) {
+                    elDet.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">등록된 점수가 없습니다.</div>`;
+                } else {
+                    elDet.innerHTML = data.detectiveRanking.map((item, i) => `
+                        <div class="flex justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
+                            <span class="font-bold ${i===0?'text-amber-400':i===1?'text-slate-300':i===2?'text-amber-600':'text-slate-400'}">${i+1}위. ${item.nickname}</span>
+                            <span class="font-digital text-emerald-400 font-bold">${item.score} PTS</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            const elBoss = document.getElementById('ranking-list-boss');
+            if (elBoss && data.bossRanking) {
+                if (data.bossRanking.length === 0) {
+                    elBoss.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">등록된 딜량이 없습니다.</div>`;
+                } else {
+                    elBoss.innerHTML = data.bossRanking.map((item, i) => `
+                        <div class="flex justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
+                            <span class="font-bold ${i===0?'text-amber-400':i===1?'text-slate-300':i===2?'text-amber-600':'text-slate-400'}">${i+1}위. ${item.nickname}</span>
+                            <span class="font-digital text-rose-400 font-bold">${Number(item.damage).toLocaleString()} DMG</span>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            const elRace = document.getElementById('ranking-list-racing');
+            if (elRace && data.racingRanking) {
+                if (data.racingRanking.length === 0) {
+                    elRace.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">등록된 성적이 없습니다.</div>`;
+                } else {
+                    elRace.innerHTML = data.racingRanking.map((item, i) => `
+                        <div class="flex justify-between p-2 rounded-xl bg-slate-900 border border-slate-800">
+                            <span class="font-bold ${i===0?'text-amber-400':i===1?'text-slate-300':i===2?'text-amber-600':'text-slate-400'}">${i+1}위. ${item.nickname} (${item.rankGrade}등급)</span>
+                            <span class="font-digital text-amber-300 font-bold">${item.score} PTS</span>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        window.onload = function() {
+            renderDetectiveCase();
+            fetchLeaderboardFromGAS(); // 시작 시 구글 시트 랭킹 자동 조회
+        };
+    </script>
+</body>
+</html>
