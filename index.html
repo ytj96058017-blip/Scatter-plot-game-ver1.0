@@ -1718,6 +1718,7 @@
             if (!gasWebUrl) return;
             
             payload.mode = mode;
+            payload.token = 'SCATTER_DETECTIVE_SECURE_2026_KEY'; // 👈 이 줄 추가!
             fetch(gasWebUrl, {
                 method: 'POST',
                 mode: 'no-cors',
@@ -1839,6 +1840,22 @@
             renderDetectiveCase();
             fetchLeaderboardFromGAS(); // 시작 시 구글 시트 랭킹 자동 조회
         };
+
+// --- 학생들의 단순 조작 방지 (F12 및 마우스 우클릭 차단) ---
+           window.addEventListener('keydown', (e) => {
+               if (
+                   e.key === 'F12' || 
+                   (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+                   (e.ctrlKey && (e.key === 'u' || e.key === 'U'))
+               ) {
+                   e.preventDefault();
+                   e.stopPropagation();
+               }
+           });
+
+           window.addEventListener('contextmenu', (e) => {
+               e.preventDefault();
+           });
     </script>
 </body>
 </html>
