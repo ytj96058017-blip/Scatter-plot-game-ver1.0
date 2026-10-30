@@ -111,7 +111,7 @@
 
                 <div class="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-1.5 flex items-center space-x-2">
                     <i class="fa-solid fa-wifi text-emerald-400 text-xs" id="room-status-dot"></i>
-                    <span class="text-xs font-bold text-slate-300" id="current-room-display">ROOM101 (탐정1)</span>
+                    <span class="text-xs font-bold text-amber-300" id="current-room-display">로그인 필요</span>
                     <button onclick="openModal('room-modal')" class="text-[10px] bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-0.5 rounded font-bold transition">
                         방 접속
                     </button>
@@ -635,17 +635,18 @@
             </div>
             <div class="space-y-3">
                 <div>
-                    <label class="block text-xs font-bold text-slate-300 mb-1">학생 닉네임</label>
-                    <input type="text" id="player-nickname" value="탐정1" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                    <label class="block text-xs font-bold text-slate-300 mb-1">학생 닉네임 (본인 이름/학번)</label>
+                    <input type="text" id="player-nickname" placeholder="예: 3학년2반 홍길동" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-300 mb-1">방 코드 (Room Code)</label>
+                    <label class="block text-xs font-bold text-slate-300 mb-1">학급 방 코드 (선생님 안내)</label>
                     <input type="text" id="room-code-input" value="ROOM101" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white uppercase font-digital">
                 </div>
             </div>
             <div class="flex space-x-2">
-                <button onclick="closeModal('room-modal')" class="flex-1 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold">취소</button>
-                <button onclick="joinRoom()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold">입장</button>
+                <button onclick="joinRoom()" class="w-full py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-500/30">
+                    탐정 등록하고 시작하기
+                </button>
             </div>
         </div>
     </div>
@@ -823,11 +824,18 @@
         };
 
         window.joinRoom = function() {
-            const nick = document.getElementById('player-nickname').value || '탐정';
-            const roomCode = document.getElementById('room-code-input').value.toUpperCase() || 'ROOM101';
+            const nick = (document.getElementById('player-nickname')?.value || '').trim();
+            const roomCode = (document.getElementById('room-code-input')?.value || 'ROOM101').toUpperCase().trim();
+
+            if (!nick) {
+                window.showToast('⚠️ 닉네임(이름)을 입력해주세요!', 'error');
+                document.getElementById('player-nickname')?.focus();
+                return;
+            }
+
             document.getElementById('current-room-display').innerText = `${roomCode} (${nick})`;
             window.closeModal('room-modal');
-            window.showToast(`'${roomCode}' 학급 방에 입장했습니다!`, 'success');
+            window.showToast(`환영합니다! '${roomCode}' 방에 [${nick}] 탐정으로 입장했습니다.`, 'success');
             renderLiveBossLeaderboard();
             fetchLeaderboardFromGAS();
         };
@@ -1838,6 +1846,7 @@
 
         window.onload = function() {
             renderDetectiveCase();
+            window.openModal('room-modal');
             fetchLeaderboardFromGAS(); // 시작 시 구글 시트 랭킹 자동 조회
         };
 
